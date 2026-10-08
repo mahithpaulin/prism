@@ -17,13 +17,15 @@ commits. The `prism/` package itself is stdlib-only (`>=3.10`).
 ```python
 from prism import Prism
 p = Prism()
-obs = p.notice(list("ABCABCABC"))          # Nexora envelope
-pf = p.prove("edge(a,b).\nedge(b,c).\n"
-             "path(X,Y) :- edge(X,Y).\n"
-             "path(X,Z) :- path(X,Y), edge(Y,Z).\n"
-             "?- path(a,c).\n")             # Axiom verdict (needs built axiom-mcp)
-combo = p.notice_then_prove(list("ABCABCABC"), "edge(a,b).\n?- edge(a,b).\n")
-print(combo["verdict"]["verdict"])          # PROVEN / OBSERVED / INCONCLUSIVE — never guessed
+obs = p.notice(list("ABC" * 10))        # Nexora envelope
+pf = p.prove("edge(a,b).\n?- edge(a,b).\n")  # Axiom verdict (needs built axiom-mcp)
+combo = p.notice_then_prove(list("ABC" * 10), "edge(a,b).\n?- edge(a,b).\n")
+print(combo["verdict"]["verdict"])       # PROVEN / OBSERVED / INCONCLUSIVE — never guessed
+# No human in the middle: predict -> encode -> prove, with just both engines.
+r = p.auto(list("ABC" * 10))
+print(r["prediction"], r["verdict"]["verdict"])  # {'current': 'C', 'next': 'A', ...} PROVEN
+w = p.watch([list("ABC" * 10), ["noisy", "tokens", "here"]])
+print(w["changes"])                     # [1] — prediction/verdict changed at batch 1
 print(p.health())
 ```
 
@@ -38,7 +40,8 @@ without the Rust build; CI builds `axiom-mcp` and runs the full gate.
 
 ## Layout
 
-- `prism/` — `engine.py` (Prism loop) · `notice.py` (lazy Nexora import) ·
+- `prism/` — `engine.py` (Prism loop: `auto`/`watch`) · `encode.py`
+  (trace → Datalog, legend `s0…`) · `notice.py` (lazy Nexora import) ·
   `prove.py` (MCP stdio client) · `honesty.py` (grading, the load-bearing rule)
 - `axiom/` · `nexora/` — pinned submodules (exact SHAs in `.gitmodules` + CHANGELOG)
 - `tests/test_prism.py` — fast unit + integration (Rust tests skip cleanly without binary)

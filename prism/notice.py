@@ -94,3 +94,37 @@ def observe(data):
             "anomalies": anom.get("anomalies", []) if isinstance(anom, dict) else [],
             "predictions": pred.get("predictions", []) if isinstance(pred, dict) else [],
             "prism_source": source()}
+
+
+def predict_value(data, current=None):
+    """Ask Nexora for the next value after `current` (default: last element).
+
+    Returns (current_used, value_or_None, envelope). None means Nexora
+    abstained or is unavailable -- never a fabricated guess.
+    """
+    _load()
+    if _engine_cls is None:
+        return None, None, {"status": "INSUFFICIENT_DATA",
+                            "reason": f"nexora unavailable: {_engine_error}"}
+    try:
+        items = list(data)
+    except TypeError:
+        return None, None, {"status": "INSUFFICIENT_DATA",
+                            "reason": "data is not a sequence"}
+    if current is None:
+        if not items:
+            return None, None, {"status": "INSUFFICIENT_DATA",
+                                "reason": "empty data, no current value"}
+        current = items[-1]
+    nx = _engine_cls()
+    try:
+        res = nx.predict(items, current=current)
+    except Exception as exc:
+        return current, None, {"status": "INSUFFICIENT_DATA",
+                               "reason": f"predict failed honestly: {exc}"}
+    preds = res.get("predictions", []) if isinstance(res, dict) else []
+    if not preds:
+        return current, None, {"status": res.get("status", "NONE") if isinstance(res, dict) else "NONE",
+                               "reason": "nexora abstained (no candidates)"}
+    nxt = preds[0].get("next") if isinstance(preds[0], dict) else None
+    return current, nxt, res

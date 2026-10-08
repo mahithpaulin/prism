@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.0 (2026-10-08)
+
+Prism works with just both engines. `Prism.auto(data)` closes the loop
+with no human in the middle: Nexora predicts the next value,
+`prism/encode.py` turns the observed transition trace into an Axiom
+Datalog program (`trans` facts + `reach` rules, legend `s0...`), Axiom
+proves the prediction follows from what was seen (query 0) plus
+reachability (query 1). `Prism.watch(batches)` re-runs `auto` per batch
+and flags verdict/prediction changes (deterministic, no clocks).
+
+Semantics (kept honest): PROVEN certifies entailment by the encoded
+trace, never conformity of the future; unobserved pairs earn Refuted;
+abstentions, unencodable data, and missing binaries degrade to
+OBSERVED/INCONCLUSIVE. Tests 8 → 15, eval 5 → 9 checks, all green
+with zero skips where both engines are present, honest skips elsewhere.
+
 ## 1.0.0 (2026-10-08)
 
 Initial Prism: Axiom `v3-slice-1` @ `f8668030cb2d1a02365cfbde8cf6f19906e4ed69`

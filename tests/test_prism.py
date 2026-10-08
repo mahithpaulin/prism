@@ -7,7 +7,7 @@ CI builds axiom-mcp, so the full gate runs there.
 """
 import pytest
 
-from prism import honesty
+from prism import encode, honesty
 from prism import notice, prove
 from prism.engine import Prism
 
@@ -80,3 +80,61 @@ def test_notice_then_prove_never_fabricates():
     if not prove.available():
         # Without the binary, PROVEN is unreachable by construction.
         assert combo["verdict"]["verdict"] in ("OBSERVED", "INCONCLUSIVE")
+
+
+def test_encoder_legend_stable_and_round_trips():
+    (got, reason) = encode.legend_for(list("ABCABC"))
+    assert reason is None
+    symbols, legend = got
+    assert symbols == ["s0", "s1", "s2", "s0", "s1", "s2"]
+    assert legend == {"A": "s0", "B": "s1", "C": "s2"}
+
+
+def test_encoder_rejects_unencodable():
+    assert encode.legend_for([])[0] is None
+    assert encode.legend_for(["only"])[0] is None
+    assert encode.legend_for([["nested"], ["lists"]])[0] is None
+    assert encode.auto_program([], None, None)[0] is None
+
+
+def test_encoder_program_shape():
+    program, info = encode.auto_program(list("ABCABC"), "C", "A")
+    assert program is not None and info["pair_observed"] is True
+    assert "?- trans(s2, s0)." in program
+    assert "?- reach(s0, s0)." in program
+    assert program.count("trans(s") >= 3
+
+
+def test_auto_cycle_proven_or_skip():
+    if not notice.available() or not prove.available():
+        pytest.skip("needs both engines (honest skip)")
+    r = Prism().auto(list("ABC" * 10))
+    assert r["prediction"]["next"] == "A", r["prediction"]
+    assert r["proof"]["status"] == "proved", r["proof"]
+    assert r["proof"].get("proof_present") is True
+    assert r["verdict"]["verdict"] == "PROVEN", r["verdict"]
+
+
+def test_auto_negative_earns_refuted_or_skip():
+    if not prove.available():
+        pytest.skip("axiom-mcp not built (honest skip)")
+    # Query a transition never observed: must be Refuted, never Proved.
+    (got, _reason) = encode.legend_for(list("ABCABC"))
+    symbols = got[0]
+    program = encode.program_for_trace(symbols, "s0", "s0")  # A->A unseen
+    out = prove.prove(program, query_index=0)
+    assert out["status"] == "refuted", out
+
+
+def test_auto_junk_never_proven():
+    r = Prism().auto([f"tok{i:04d}x" for i in range(25)])
+    assert r["verdict"]["verdict"] in ("OBSERVED", "INCONCLUSIVE")
+    assert r["verdict"]["verdict"] != "PROVEN"
+
+
+def test_watch_flags_change_or_skip():
+    if not notice.available():
+        pytest.skip(f"nexora not checked out ({notice.source()})")
+    w = Prism().watch([list("ABC" * 10), [f"tok{i:04d}x" for i in range(25)]])
+    assert len(w["runs"]) == 2
+    assert w["changes"] == [1]
