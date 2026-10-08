@@ -1,0 +1,26 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build axiom-mcp
+        run: cargo build -p axiom-mcp --manifest-path axiom/Cargo.toml
+      - name: pytest
+        run: python -m pytest tests/ -q
+      - name: demo
+        run: python examples/demo.py
+      - name: eval
+        run: python examples/eval_prism.py
+        env:
+          PRISM_AXIOM_MCP: ${{ github.workspace }}/axiom/target/debug/axiom-mcp

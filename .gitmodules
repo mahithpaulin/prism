@@ -1,0 +1,6 @@
+[submodule "axiom"]
+	path = axiom
+	url = https://github.com/mahithpaulin/axiom.git
+[submodule "nexora"]
+	path = nexora
+	url = https://github.com/mahithpaulin/nexora.git
