@@ -140,8 +140,34 @@ def prism_scan(stmts):
     return sols, details
 
 
+def run_one(seed_start):
+    """One duel instance. Returns (seed, passed, note). No solution printed."""
+    seed, stmts, solution = find_unique(seed_start)
+    sols, _ = prism_scan(stmts)
+    ok = len(sols) == 1 and sols[0] == solution
+    short = "".join(s[0].upper() if v == "knight" else s[0].lower()
+                    for s, v in sorted(solution.items()))
+    return seed, ok, f"solution {short}"
+
+
 def main():
     gen_only = "--gen-only" in sys.argv
+    sweep = [a for a in sys.argv if a.startswith("--sweep")]
+    if sweep:
+        n = int(sweep[0].split("=", 1)[1]) if "=" in sweep[0] else 24
+        if not prove.available():
+            print("axiom-mcp not built; sweep skipped.")
+            sys.exit(0)
+        passed, seen = 0, set()
+        for i in range(n):
+            seed, ok, note = run_one(i * 10000)
+            dup = " DUP" if seed in seen else ""
+            seen.add(seed)
+            passed += ok and not dup
+            print(f"[{i + 1:2d}/{n}] seed {seed}: {'PASS' if ok else 'FAIL'} ({note}){dup}")
+        print(f"\nsweep: {passed}/{n} (distinct seeds: {len(seen)})")
+        print("SWEEP-PASS" if passed == n else "SWEEP-FAIL")
+        sys.exit(0 if passed == n else 1)
     seed, stmts, solution = find_unique()
     print(f"seed: {seed}")
     print(nl_wording(stmts))
