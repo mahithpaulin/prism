@@ -38,3 +38,7 @@ jobs:
         run: python examples/hard_combined.py
         env:
           PRISM_AXIOM_MCP: ${{ github.workspace }}/axiom/target/debug/axiom-mcp
+      - name: deep-combined
+        run: python examples/deep_combined.py
+        env:
+          PRISM_AXIOM_MCP: ${{ github.workspace }}/axiom/target/debug/axiom-mcp
