@@ -15,7 +15,7 @@ jobs:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable
       - name: Install test runner
-        run: pip install pytest
+        run: pip install pytest z3-solver
       - name: Build axiom-mcp
         run: cargo build -p axiom-mcp --manifest-path axiom/Cargo.toml
       - name: pytest
@@ -28,5 +28,9 @@ jobs:
           PRISM_AXIOM_MCP: ${{ github.workspace }}/axiom/target/debug/axiom-mcp
       - name: logic-duel
         run: python examples/logic_duel.py
+        env:
+          PRISM_AXIOM_MCP: ${{ github.workspace }}/axiom/target/debug/axiom-mcp
+      - name: best-of-best
+        run: python examples/best_of_best.py
         env:
           PRISM_AXIOM_MCP: ${{ github.workspace }}/axiom/target/debug/axiom-mcp
