@@ -42,3 +42,23 @@ jobs:
         run: python examples/deep_combined.py
         env:
           PRISM_AXIOM_MCP: ${{ github.workspace }}/axiom/target/debug/axiom-mcp
+  scale:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build axiom-mcp
+        run: cargo build -p axiom-mcp --manifest-path axiom/Cargo.toml
+      - name: foundry shard ${{ matrix.shard }}
+        run: python examples/scale_foundry.py --shard ${{ matrix.shard }} --seed 1
+        env:
+          PRISM_AXIOM_MCP: ${{ github.workspace }}/axiom/target/debug/axiom-mcp
