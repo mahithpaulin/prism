@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.5.0 (2026-10-10)
+
+Symbiotic loop: Nexora proposes, Axiom disposes. v1.1 was one-way
+(predict -> encode -> prove, single candidate). v1.5 is bidirectional
+with no new dependencies and no engine forks:
+
+- `notice.predict_candidates(data, k)`: up to k ranked next-values
+  (Markov first, then unseen context-backoff extras), honestly empty
+  on abstain. `predict_value()` kept byte-identical.
+- `Prism.auto_topk(k)`: proves every candidate (query 0 + reachability),
+  first PROVEN wins (repair on veto), else the top candidate's honest
+  verdict stands. Early-stops on first PROVEN: clean cycles cost what
+  `auto()` costs (2 proves); only ambiguous traces pay more (max 5
+  candidates, 2 proves each, plus 2 for the clean re-prove).
+- `Prism.auto_symbiotic(k)`: superset of `auto()` (same program/legend/
+  proof/reach_proof/verdict for the winner on clean cycles) plus
+  anomaly-aware re-prove on the cleaned trace (agreement reported, never
+  used to downgrade entailment), pure determinism readout, veto counts,
+  candidate table. PROVEN still requires a verified Axiom proof.
+- `Prism.watch_symbiotic()`: `changes` uses exactly the `watch()` rule;
+  adds `proof_changes`, `anomaly_deltas`, `repairs`.
+- `honesty.grade_symbiotic()`: pure selection over ranked verdicts;
+  `grade()` untouched. `encode.anomaly_indices/clean_items/
+  determinism_for()`: pure helpers, fully unit-tested.
+- All v1.1 entry points unchanged: pytest 15 -> 25, eval 9 checks
+  untouched, new `eval_symbiotic.py` gate (9 checks) runs in CI.
+
 ## 1.1.0 (2026-10-08)
 
 Prism works with just both engines. `Prism.auto(data)` closes the loop

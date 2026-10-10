@@ -96,6 +96,85 @@ def observe(data):
             "prism_source": source()}
 
 
+def predict_candidates(data, current=None, k=3):
+    """Ask Nexora for up to k next-value candidates after `current`.
+
+    Returns (current_used, [next values in ranked order], envelope).
+    Markov predictions come first, then unseen context-backoff extras --
+    but only when Markov has at least one candidate. When Markov is
+    empty Nexora is abstaining (no recorded outgoing transition, e.g.
+    junk or arithmetic frontiers) and the context order-0 unigram
+    fallback must not override that abstention, so the list stays empty.
+    This keeps the top-1 identical to predict_value() in every case:
+    v1.1 abstains exactly where v1.5 abstains. Empty list means Nexora
+    abstained or is unavailable -- never a fabricated guess. Pure
+    ranking, no Axiom contact (the veto happens in engine.py).
+    """
+    _load()
+    try:
+        kk = max(1, int(k))
+    except (TypeError, ValueError):
+        kk = 3
+    if _engine_cls is None:
+        return None, [], {"status": "INSUFFICIENT_DATA",
+                           "reason": f"nexora unavailable: {_engine_error}"}
+    try:
+        items = list(data)
+    except TypeError:
+        return None, [], {"status": "INSUFFICIENT_DATA",
+                           "reason": "data is not a sequence"}
+    if current is None:
+        if not items:
+            return None, [], {"status": "INSUFFICIENT_DATA",
+                               "reason": "empty data, no current value"}
+        current = items[-1]
+    nx = _engine_cls()
+    try:
+        res = nx.predict(items, current=current, top_k=kk)
+    except TypeError:
+        # Older Nexora without top_k kwarg: fall back to default call.
+        try:
+            res = nx.predict(items, current=current)
+        except Exception as exc:
+            return current, [], {"status": "INSUFFICIENT_DATA",
+                                  "reason": f"predict failed honestly: {exc}"}
+    except Exception as exc:
+        return current, [], {"status": "INSUFFICIENT_DATA",
+                              "reason": f"predict failed honestly: {exc}"}
+    if not isinstance(res, dict):
+        return current, [], {"status": "NONE",
+                              "reason": "nexora returned non-dict envelope"}
+    markov = res.get("predictions", []) if isinstance(res.get("predictions"), list) else []
+    if not markov:
+        # Markov abstains: no recorded outgoing transition. Keep the
+        # abstention (v1.1 predict_value returns None here too); the
+        # context order-0 fallback is not a real prediction.
+        return current, [], res
+    seen = []
+    seen_set = set()
+    for field in ("predictions", "context"):
+        preds = res.get(field, []) if isinstance(res.get(field), list) else []
+        for p in preds:
+            nxt = p.get("next") if isinstance(p, dict) else None
+            try:
+                key = repr(nxt)
+            except Exception:
+                continue
+            if nxt is None or key in seen_set:
+                continue
+            try:
+                hash(nxt)
+            except TypeError:
+                continue
+            seen.append(nxt)
+            seen_set.add(key)
+            if len(seen) >= kk:
+                break
+        if len(seen) >= kk:
+            break
+    return current, seen, res
+
+
 def predict_value(data, current=None):
     """Ask Nexora for the next value after `current` (default: last element).
 

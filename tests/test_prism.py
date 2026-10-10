@@ -138,3 +138,95 @@ def test_watch_flags_change_or_skip():
     w = Prism().watch([list("ABC" * 10), [f"tok{i:04d}x" for i in range(25)]])
     assert len(w["runs"]) == 2
     assert w["changes"] == [1]
+
+
+# ------------------------------------------------ v1.5 symbiotic (pure first)
+
+
+def test_anomaly_indices_pure():
+    anoms = [{"index": 2}, {"index": 2}, {"index": 99}, {"index": -1},
+             {"nope": 1}, "junk", {"index": "3"}]
+    assert encode.anomaly_indices(anoms, 5) == [2, 3]
+    assert encode.anomaly_indices([], 10) == []
+    assert encode.anomaly_indices([{"index": 0}], 0) == []
+
+
+def test_clean_items_pure():
+    (kept, _reason) = encode.clean_items(list("ABCDE"), [1, 3])
+    items, pos = kept
+    assert items == ["A", "C", "E"] and pos == [0, 2, 4]
+    assert encode.clean_items(list("ABC"), [0, 1, 2])[0] is None
+    assert encode.clean_items("ABC", [])[0] is not None
+
+
+def test_determinism_pure():
+    out, det = encode.determinism_for(["s0", "s1", "s2", "s0", "s1", "s2"])
+    assert det is True
+    assert out["s0"] == ["s1"]
+    out2, det2 = encode.determinism_for(["s0", "s1", "s0", "s2"])
+    assert det2 is False
+    assert sorted(out2["s0"]) == ["s1", "s2"]
+
+
+def test_grade_symbiotic_selects_proven_pure():
+    a = honesty.grade("refuted", True, True, "FOUND")
+    b = honesty.grade("proved", True, True, "FOUND")
+    v = honesty.grade_symbiotic([a, b], nexora_status="FOUND")
+    assert v["verdict"] == "PROVEN"
+    assert v["detail"]["selected_index"] == 1
+    assert v["detail"]["repaired"] is True
+    assert v["detail"]["vetoed"] == 1
+
+
+def test_grade_symbiotic_falls_back_honestly_pure():
+    o = honesty.grade("exhausted", False, False, "FOUND")
+    assert honesty.grade_symbiotic([], nexora_status="FOUND")["verdict"] == "OBSERVED"
+    v = honesty.grade_symbiotic([o], nexora_status="FOUND")
+    assert v["verdict"] == "OBSERVED"
+
+
+def test_predict_candidates_or_skip():
+    if not notice.available():
+        pytest.skip(f"nexora not checked out ({notice.source()})")
+    cur, cands, _env = notice.predict_candidates(list("ABC" * 10), k=3)
+    assert cur == "C"
+    assert cands and cands[0] == "A"
+    assert len(cands) <= 3
+
+
+def test_auto_topk_matches_auto_on_cycle_or_skip():
+    if not notice.available() or not prove.available():
+        pytest.skip("needs both engines (honest skip)")
+    p = Prism()
+    a = p.auto(list("ABC" * 10))
+    t = p.auto_topk(list("ABC" * 10), k=3)
+    assert t["prediction"]["next"] == a["prediction"]["next"] == "A"
+    assert t["verdict"]["verdict"] == "PROVEN"
+    assert t["selected"]["program"] == a["program"]
+    assert t["selected_index"] == 0
+
+
+def test_auto_symbiotic_superset_or_skip():
+    if not notice.available() or not prove.available():
+        pytest.skip("needs both engines (honest skip)")
+    p = Prism()
+    r = p.auto_symbiotic(list("ABC" * 10), k=3)
+    assert r["verdict"]["verdict"] == "PROVEN"
+    assert r["program"] is not None and r["proof"]["status"] == "proved"
+    assert r["determinism"]["deterministic"] is True
+    assert r["anomaly_count"] == 0
+    assert r["selected_index"] == 0
+
+
+def test_auto_symbiotic_junk_never_proven():
+    r = Prism().auto_symbiotic([f"tok{i:04d}x" for i in range(25)], k=3)
+    assert r["verdict"]["verdict"] in ("OBSERVED", "INCONCLUSIVE")
+    assert r["verdict"]["verdict"] != "PROVEN"
+
+
+def test_watch_symbiotic_matches_watch_or_skip():
+    if not notice.available():
+        pytest.skip(f"nexora not checked out ({notice.source()})")
+    p = Prism()
+    seq = [list("ABC" * 10), [f"tok{i:04d}x" for i in range(25)]]
+    assert p.watch_symbiotic(seq)["changes"] == p.watch(seq)["changes"] == [1]

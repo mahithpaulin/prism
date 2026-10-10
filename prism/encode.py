@@ -73,3 +73,67 @@ def auto_program(data, current, predicted):
     program = program_for_trace(symbols, cur_sym, pred_sym)
     return program, {"legend": legend, "current": cur_sym,
                      "predicted": pred_sym, "pair_observed": observed}
+
+
+def anomaly_indices(anomalies, n):
+    """Extract valid anomaly positions. Pure function of the envelope.
+
+    Returns a sorted list of int indices i with 0 <= i < n.
+    Anything malformed is ignored, never raises.
+    """
+    out = set()
+    try:
+        count = int(n)
+    except (TypeError, ValueError):
+        return []
+    if count <= 0 or not isinstance(anomalies, list):
+        return []
+    for a in anomalies:
+        if not isinstance(a, dict):
+            continue
+        try:
+            i = int(a.get("index", -1))
+        except (TypeError, ValueError):
+            continue
+        if 0 <= i < count:
+            out.add(i)
+    return sorted(out)
+
+
+def clean_items(data_items, drop_indices):
+    """Filter observations at dropped positions. Pure, never raises.
+
+    Returns (kept_list, kept_positions) or (None, reason) when fewer
+    than 2 observations would remain (no transitions to encode).
+    """
+    try:
+        items = list(data_items)
+    except TypeError:
+        return None, "not a sequence"
+    try:
+        drop = set(int(i) for i in (drop_indices or []))
+    except (TypeError, ValueError):
+        drop = set()
+    kept = [v for i, v in enumerate(items) if i not in drop]
+    kept_pos = [i for i in range(len(items)) if i not in drop]
+    if len(kept) < 2:
+        return None, "fewer than 2 observations remain after cleaning"
+    return (kept, kept_pos), None
+
+
+def determinism_for(symbols):
+    """Map each state to its observed successors. Pure function.
+
+    Returns (outgoing, is_deterministic) where outgoing maps symbol
+    -> sorted list of successor symbols. Deterministic means every
+    observed state has exactly one observed successor.
+    """
+    outgoing = {}
+    try:
+        pairs = list(zip(symbols, symbols[1:]))
+    except TypeError:
+        return {}, True
+    for a, b in pairs:
+        outgoing.setdefault(a, set()).add(b)
+    det = all(len(v) == 1 for v in outgoing.values())
+    return ({k: sorted(v) for k, v in outgoing.items()}, det)

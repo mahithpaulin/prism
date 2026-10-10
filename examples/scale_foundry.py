@@ -140,7 +140,11 @@ def _engine_versions():
         except Exception:
             return "unknown"
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return {"prism": "1.1.0", "foundry": FOUNDRY_VERSION,
+    try:
+        from prism import __version__ as _pv
+    except Exception:
+        _pv = "1.1.0"
+    return {"prism": _pv, "foundry": FOUNDRY_VERSION,
             "axiom": sha(os.path.join(here, "axiom")),
             "nexora": sha(os.path.join(here, "nexora"))}
 

@@ -46,3 +46,50 @@ def grade(axiom_status=None, axiom_verified=False, proof_present=False,
     return PrismVerdict(INCONCLUSIVE, "prism",
                         {"axiom_status": ax or "not-asked",
                          "nexora_status": nexora_status or "not-asked"})
+
+
+def grade_symbiotic(candidate_verdicts, nexora_status=None, anomaly_count=0,
+                    clean_agreement=None, determinism=None):
+    """Select one verdict from a ranked candidate list. Pure, no I/O.
+
+    candidate_verdicts: list of PrismVerdict (ranked, best first), each
+    with detail carrying at least {"next": value}. Selection rule:
+      - first PROVEN wins (Axiom proved + verified; repair on veto);
+      - else the top candidate's verdict stands (REFUTED stays REFUTED,
+        otherwise OBSERVED/INCONCLUSIVE -- never promoted).
+    The returned verdict keeps its verdict string and source; only the
+    detail is enriched with symbiotic metadata. Empty list degrades to
+    grade() with no Axiom answer (honest abstain path).
+    """
+    cands = list(candidate_verdicts or [])
+    if not cands:
+        return grade(axiom_status="", nexora_status=nexora_status)
+    picked_idx = 0
+    for i, v in enumerate(cands):
+        try:
+            vv = v.get("verdict") if isinstance(v, dict) else None
+        except Exception:
+            vv = None
+        if vv == PROVEN:
+            picked_idx = i
+            break
+    try:
+        vetoed = sum(1 for v in cands
+                     if isinstance(v, dict) and v.get("verdict") == REFUTED)
+    except Exception:
+        vetoed = 0
+    picked = cands[picked_idx]
+    if not isinstance(picked, dict):
+        return grade(axiom_status="", nexora_status=nexora_status)
+    detail = dict(picked.get("detail", {}) or {})
+    detail.update({
+        "candidates_tried": len(cands),
+        "selected_index": picked_idx,
+        "vetoed": vetoed,
+        "repaired": bool(picked_idx > 0),
+        "anomaly_count": int(anomaly_count or 0),
+        "clean_agreement": clean_agreement,
+        "determinism": determinism,
+    })
+    return PrismVerdict(picked.get("verdict", INCONCLUSIVE),
+                        picked.get("source", "prism"), detail)

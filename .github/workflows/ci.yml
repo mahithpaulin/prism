@@ -26,6 +26,10 @@ jobs:
         run: python examples/eval_prism.py
         env:
           PRISM_AXIOM_MCP: ${{ github.workspace }}/axiom/target/debug/axiom-mcp
+      - name: eval-symbiotic
+        run: python examples/eval_symbiotic.py
+        env:
+          PRISM_AXIOM_MCP: ${{ github.workspace }}/axiom/target/debug/axiom-mcp
       - name: logic-duel
         run: python examples/logic_duel.py
         env:

@@ -33,3 +33,24 @@ both are pinned submodules, so upstream fixes flow via SHA bumps.
 3. `notice_then_prove`: runs both, grades with `honesty.grade`.
 4. Monitor (v1 manual, v2 watchlist): `Nexora.update()` streams new
    observations; on drift, re-encode and re-prove.
+
+## v1.5 symbiotic loop (bidirectional; v1.1 paths untouched)
+
+```text
+NEXORA predict_candidates(k) ──▶ CANDIDATES ──▶ encode × k ──▶ AXIOM prove × k
+      ▲                                │ veto (refuted) / select (first proved)
+      │ anomaly mask                   ▼
+      └──── clean-trace re-prove ◀── WINNER ──▶ grade_symbiotic ──▶ verdict + proof
+                    (agreement reported, never downgrades entailment)
+```
+
+- Forward: Nexora proposes (Markov first, context extras), guides which
+  programs Axiom proves. Backward: Axiom vetoes refuted candidates and
+  forces repair to the next-best; the anomaly mask guides the clean
+  re-prove. Neither engine was forked; the coupling lives in `prism/`
+  only (`notice.predict_candidates`, `encode.anomaly_indices/
+  clean_items/determinism_for`, `honesty.grade_symbiotic`,
+  `engine.auto_topk/auto_symbiotic/watch_symbiotic`).
+- Cost: clean traces stop at the first PROVEN (2 proves, same as v1.1);
+  worst case is 2k + 2 proves (k <= 5). The honesty invariant is
+  unchanged: PROVEN only on a verified Axiom proof with proof_present.
